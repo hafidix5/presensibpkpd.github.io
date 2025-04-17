@@ -1,50 +1,104 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-  <title>Presensi Lokasi</title>
-  <script>
-    const targetLat = -0.153817;
-    const targetLng = 100.660823;
-    const radius = 100; // meter
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presensi Lokasi</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 
-    function getDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371000;
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) *
-        Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    }
+    <style>
+        body {
+            background-color: #f0f8ff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
 
-    function start() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(pos) {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          const distance = getDistance(lat, lng, targetLat, targetLng);
-          if (distance <= radius) {
-            // MASUKKAN LINK PREFILL DENGAN ENTRY SESUAI FORM KAMU
-            const formUrl = `https://docs.google.com/forms/d/e/1FAIpQLSeXYZ123abc/viewform?usp=pp_url&entry.123456789=${lat}&entry.987654321=${lng}`;
-            window.location.href = formUrl;
-          } else {
-            document.body.innerHTML = "<h3 style='color:red'>Anda berada di luar radius 100 meter.</h3>";
-          }
-        }, function(error) {
-          document.body.innerHTML = "<h3>Gagal mengambil lokasi. Coba aktifkan GPS.</h3>";
-        });
-      } else {
-        document.body.innerHTML = "<h3>Browser tidak mendukung geolocation.</h3>";
-      }
-    }
-
-    window.onload = start;
-  </script>
+        .box {
+            background-color: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-  <h3>Mengecek lokasi Anda...</h3>
+    <div class="box">
+        <h3>Presensi Lokasi</h3>
+        <p id="status">Mengambil lokasi Anda...</p>
+        <input type="hidden" id="latitude">
+        <input type="hidden" id="longitude">
+        <input type="hidden" id="lokasi">
+    </div>
+
+    <!-- jQuery & Bootstrap -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        const formUrl = "https://docs.google.com/forms/d/1y6KJ-M2Camskp26_RoMGgwSyzD8mC5s2DREO_9p5bgA/prefill"; // 🔁 Ganti dengan URL Google Form kamu
+        const targetLat = -0.153817;
+        const targetLng = 100.660823;
+        const maxDistance = 100; // meter
+
+        function haversine(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const toRad = deg => deg * Math.PI / 180;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) ** 2 +
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                      Math.sin(dLon / 2) ** 2;
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        async function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(async function(position) {
+                    let lat = position.coords.latitude;
+                    let lon = position.coords.longitude;
+
+                    $('#latitude').val(lat);
+                    $('#longitude').val(lon);
+
+                    let distance = haversine(lat, lon, targetLat, targetLng);
+
+                    if (distance <= maxDistance) {
+                        $('#status').text("Anda berada dalam radius. Mengarahkan ke form...");
+                        
+                        // Ambil alamat dari OpenCage
+                        const apiKey = "11125b05f92d439480d740673d8d48c2"; // 🔁 Ganti dengan API Key OpenCage kamu
+                        const url = `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${apiKey}`;
+
+                        try {
+                            let response = await fetch(url);
+                            let data = await response.json();
+                            if (data.results.length > 0) {
+                                let address = data.results[0].formatted;
+                                $('#lokasi').val(address);
+                            }
+                        } catch (e) {
+                            console.error("Gagal mendapatkan alamat:", e);
+                        }
+
+                        // Redirect ke Google Form
+                        window.location.href = formUrl;
+                    } else {
+                        $('#status').html(`Jarak Anda <b>${Math.round(distance)} meter</b>. Di luar radius 100 meter!`);
+                    }
+                }, function(error) {
+                    $('#status').text("Gagal mendapatkan lokasi: " + error.message);
+                });
+            } else {
+                $('#status').text("Geolocation tidak didukung browser Anda.");
+            }
+        }
+
+        getLocation();
+    </script>
 </body>
 </html>
